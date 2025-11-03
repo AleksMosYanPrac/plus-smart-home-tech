@@ -26,7 +26,7 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
     @Value("${collector.kafka.producer.hub-topic}")
     private String hubTopic;
 
-    @Value("${collector.kafka.producer.hub-topic}")
+    @Value("${collector.kafka.producer.sensor-topic}")
     private String sensorTopic;
 
     @Override

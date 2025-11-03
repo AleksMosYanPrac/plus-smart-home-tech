@@ -31,14 +31,14 @@ public class ScenarioAddedEventConverter implements HubEventConverter {
                         .setSensorId(c.getSensorId())
                         .setOperation(ConditionOperationAvro.valueOf(c.getOperation().toString()))
                         .setType(ConditionTypeAvro.valueOf(c.getType().toString()))
-                        .setValue(c.getValueCase())
+                        .setValue(c.hasIntValue() ? c.getIntValue() : c.getBoolValue())
                         .build())
                 .toList();
     }
 
     private List<DeviceActionAvro> getDeviceActions(List<DeviceActionProto> actionList) {
         return actionList.stream()
-                .map(a->DeviceActionAvro.newBuilder()
+                .map(a -> DeviceActionAvro.newBuilder()
                         .setSensorId(a.getSensorId())
                         .setType(ActionTypeAvro.valueOf(a.getType().toString()))
                         .setValue(a.getValue())
