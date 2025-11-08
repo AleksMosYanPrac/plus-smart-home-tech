@@ -1,4 +1,4 @@
-package ru.practicum.telemetry.aggregator.config;
+package ru.practicum.telemetry.aggregator.kafka;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
