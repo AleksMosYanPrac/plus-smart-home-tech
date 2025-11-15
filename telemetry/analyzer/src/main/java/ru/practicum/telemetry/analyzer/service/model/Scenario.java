@@ -4,13 +4,10 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import ru.yandex.practicum.kafka.telemetry.event.SensorStateAvro;
 
 import java.util.Map;
-import java.util.Set;
 
-@Slf4j
 @Entity
 @Table(name = "scenarios")
 @Getter
@@ -44,9 +41,8 @@ public class Scenario {
             inverseJoinColumns = @JoinColumn(name = "action_id"))
     private Map<String, Action> actions;
 
-    // map<SensorStateAvro> sensorsState; // набор состояний, где ключ - id устройства
+
     public boolean checkConditions(Map<String, SensorStateAvro> sensorsState) {
-        log.info("Check condition Scenario:{}",name);
         return conditions.entrySet().stream()
                 .allMatch(entry -> entry.getValue().check(sensorsState.get(entry.getKey())));
     }

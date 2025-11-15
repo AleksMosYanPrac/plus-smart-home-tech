@@ -37,32 +37,14 @@ public class AnalyzerService {
         return scenarioList.isEmpty() ? Optional.empty() : Optional.of(scenarioList);
     }
 
-    private Stream<DeviceActionRequest> mapToDeviceActionRequest(Scenario scenario) {
-        return scenario.getActions().entrySet().stream().map(entry -> {
-            Instant now = Instant.now();
-            return DeviceActionRequest.newBuilder()
-                    .setHubId(scenario.getHubId())
-                    .setScenarioName(scenario.getName())
-                    .setAction(DeviceActionProto.newBuilder()
-                            .setSensorId(entry.getKey())
-                            .setType(ActionTypeProto.valueOf(entry.getValue().getType()))
-                            .setValue(entry.getValue().getValue())
-                            .build())
-                    .setTimestamp(Timestamp.newBuilder()
-                            .setSeconds(now.getEpochSecond())
-                            .setNanos(now.getNano())
-                            .build())
-                    .build();
-        });
-    }
-
     public void analyze(HubEventAvro value) {
         switch (value.getPayload()) {
             case DeviceAddedEventAvro deviceAdded -> addNewSensor(value, deviceAdded);
             case DeviceRemovedEventAvro deviceRemoved -> deleteSensor(value, deviceRemoved);
             case ScenarioAddedEventAvro scenarioAdded -> addNewScenario(value, scenarioAdded);
             case ScenarioRemovedEventAvro scenarioRemoved -> deleteScenario(value, scenarioRemoved);
-            case null, default -> throw new IllegalArgumentException("Unknown type of hub event: " + value.getPayload());
+            case null, default ->
+                    throw new IllegalArgumentException("Unknown type of hub event: " + value.getPayload());
         }
     }
 
@@ -121,15 +103,12 @@ public class AnalyzerService {
             action.setValue(a.getValue());
 
             Action newAction = actionRepository.save(action);
-
             actionMap.put(sensor.getId(), newAction);
         });
 
         newScenario.setConditions(conditionMap);
         newScenario.setActions(actionMap);
-
-        newScenario = scenarioRepository.save(newScenario);
-        log.info("Scenario added {} for Hub:{}", newScenario.getName(), newScenario.getHubId());
+        scenarioRepository.save(newScenario);
     }
 
     private Integer getCaseValue(Object value) {
@@ -140,5 +119,24 @@ public class AnalyzerService {
         } else {
             return null;
         }
+    }
+
+    private Stream<DeviceActionRequest> mapToDeviceActionRequest(Scenario scenario) {
+        return scenario.getActions().entrySet().stream().map(entry -> {
+            Instant now = Instant.now();
+            return DeviceActionRequest.newBuilder()
+                    .setHubId(scenario.getHubId())
+                    .setScenarioName(scenario.getName())
+                    .setAction(DeviceActionProto.newBuilder()
+                            .setSensorId(entry.getKey())
+                            .setType(ActionTypeProto.valueOf(entry.getValue().getType()))
+                            .setValue(entry.getValue().getValue())
+                            .build())
+                    .setTimestamp(Timestamp.newBuilder()
+                            .setSeconds(now.getEpochSecond())
+                            .setNanos(now.getNano())
+                            .build())
+                    .build();
+        });
     }
 }

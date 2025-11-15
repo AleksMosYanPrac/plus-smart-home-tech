@@ -5,12 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import ru.yandex.practicum.kafka.telemetry.event.*;
 
 import java.util.Objects;
 
-@Slf4j
 @Entity
 @Table(name = "conditions")
 @Getter
@@ -21,12 +19,8 @@ public class Condition {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    //SensorType
     private String type;
-    //MORE,LESS,EQUALS
     private String operation;
-    //BASE VALUE
     private Integer value;
 
     public boolean check(SensorStateAvro sensorStateAvro) {
@@ -34,8 +28,6 @@ public class Condition {
             return false;
         }
         int actual = chooseBySensorType(sensorStateAvro.getData());
-        log.info("Check condition type:{} operation:{} value:{} ", type, operation, value);
-        log.info("SensorState: {} ", sensorStateAvro.getData());
         return switch (operation) {
             case "EQUALS" -> value == actual;
             case "GREATER_THAN" -> value < actual;

@@ -32,6 +32,10 @@ public class SnapshotProcessor implements Runnable {
                         l.forEach(actionRequest -> {
                             try {
                                 hubRouterClient.handleDeviceAction(actionRequest);
+                                log.debug("Sent Request by gRPC to HubId: {} Scenario: {} ActionType: {}",
+                                        actionRequest.getHubId(),
+                                        actionRequest.getScenarioName(),
+                                        actionRequest.getAction().getType());
                             } catch (StatusRuntimeException e) {
                                 log.error("gRPC send request to HUB:{} scenario:{}  error:{}.",
                                         actionRequest.getHubId(),

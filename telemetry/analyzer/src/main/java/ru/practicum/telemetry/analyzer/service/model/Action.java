@@ -13,9 +13,6 @@ public class Action {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    //SensorType
     private String type;
-
     private Integer value;
 }
