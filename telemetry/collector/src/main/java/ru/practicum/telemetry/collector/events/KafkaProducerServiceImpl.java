@@ -31,16 +31,16 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
 
     @Override
     public void send(HubEventProto event) {
+        log.debug("Hub event: {}", event);
         SpecificRecordBase hubEvent = eventMapper.toAvro(event);
         producer.send(hubTopic, hubEvent);
-        log.debug("Hub event: {}", hubEvent);
     }
 
     @Override
     public void send(SensorEventProto event) {
+        log.debug("Sensor event: {}", event);
         SpecificRecordBase sensorEvent = eventMapper.toAvro(event);
         producer.send(sensorTopic, sensorEvent);
-        log.debug("Sensor event: {}", sensorEvent);
     }
 
     @PreDestroy
