@@ -15,7 +15,7 @@ import java.util.Optional;
 @Service
 public class AggregationService {
 
-    Map<String, SensorsSnapshotAvro> snapshots = new HashMap<>();
+    private Map<String, SensorsSnapshotAvro> snapshots = new HashMap<>();
 
     public Optional<SensorsSnapshotAvro> updateState(SensorEventAvro event) {
         // Проверяем, есть ли снапшот для event.getHubId(),Если снапшот есть, то достаём его
@@ -41,7 +41,7 @@ public class AggregationService {
         }
 
         // пришли новые данные и снапшот нужно обновить
-        //Создаём экземпляр SensorStateAvro на основе данных события
+        // Создаём экземпляр SensorStateAvro на основе данных события
         SensorStateAvro newSensorState = SensorStateAvro.newBuilder()
                 .setTimestamp(event.getTimestamp())
                 .setData(event.getPayload())
