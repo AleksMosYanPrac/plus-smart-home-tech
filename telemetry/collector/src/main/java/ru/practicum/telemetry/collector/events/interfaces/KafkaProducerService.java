@@ -1,11 +1,11 @@
 package ru.practicum.telemetry.collector.events.interfaces;
 
-import org.apache.avro.specific.SpecificRecordBase;
 import ru.yandex.practicum.grpc.telemetry.event.HubEventProto;
 import ru.yandex.practicum.grpc.telemetry.event.SensorEventProto;
 
-public interface EventsMapper {
-    SpecificRecordBase toAvro(SensorEventProto event);
+public interface KafkaProducerService {
 
-    SpecificRecordBase toAvro(HubEventProto event);
+    void send(HubEventProto message);
+
+    void send(SensorEventProto message);
 }
