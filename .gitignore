@@ -127,3 +127,4 @@ $RECYCLE.BIN/
 *.lnk
 /.gigaide/gigaide.properties
 /*.png
+/amplicode.xml
