@@ -11,8 +11,8 @@ spring:
       mode: always
       schema-locations: classpath:db_init.sql
   datasource:
-    driverClassName: org.h2.Driver
-    url: jdbc:h2:mem:warehouse
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:6541/warehouse
     username: postgres
     password: postgres
   h2:
