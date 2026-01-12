@@ -6,9 +6,10 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.sht.commerce.cart.mapper.ShoppingCartMapper;
 import ru.yandex.practicum.sht.commerce.cart.model.ShoppingCart;
 import ru.yandex.practicum.sht.commerce.cart.repository.ShoppingCartRepository;
-import ru.yandex.practicum.sht.commerce.cart.client.WarehouseFeignClient;
+import ru.yandex.practicum.sht.commerce.contract.WarehouseFeignClient;
 import ru.yandex.practicum.sht.commerce.dto.cart.ChangeProductQuantityRequest;
 import ru.yandex.practicum.sht.commerce.dto.cart.ShoppingCartDto;
+import ru.yandex.practicum.sht.commerce.dto.warehouse.BookedProductsDto;
 import ru.yandex.practicum.sht.commerce.exception.NoProductsInShoppingCartException;
 import ru.yandex.practicum.sht.commerce.exception.NotAuthorizedUserException;
 
@@ -44,7 +45,9 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
         log.info("Add products:{} by user:{}", productByQuantity, username);
         ShoppingCartDto shoppingCartDto = getUserShoppingCart(username);
         shoppingCartDto.setProducts(productByQuantity);
-        warehouseClient.postCheckProductQuantityForShoppingCart(shoppingCartDto);
+        log.debug("Send request to warehouse for cart:{}", shoppingCartDto);
+        BookedProductsDto bookedProductsDto = warehouseClient.postCheckProductQuantityForShoppingCart(shoppingCartDto);
+        log.debug("Get response from warehouse:{}", bookedProductsDto);
         ShoppingCart shoppingCart = repository.findByUsername(username).get();
         shoppingCart.addProducts(productByQuantity);
         return mapper.toDto(repository.save(shoppingCart));
