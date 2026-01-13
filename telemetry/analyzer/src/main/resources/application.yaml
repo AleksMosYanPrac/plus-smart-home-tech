@@ -1,40 +1,15 @@
-#gRPC client
-grpc:
-  client:
-    hub-router:
-      address: static://localhost:59090
-      enableKeepAlive: true
-      keepAliveWithoutCalls: true
-      negotiationType: plaintext
-
-#Kafka consumers
-kafka:
-  hub-event-consumer:
-    topic: "telemetry.hubs.v1"
-    properties:
-      "group.id": "hub.analyzer"
-      "bootstrap.servers": "localhost:9092"
-      "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
-      "value.deserializer": "ru.yandex.practicum.kafka.telemetry.serialization.HubEventDeserializer"
-
-  snapshot-consumer:
-    topic: "telemetry.snapshots.v1"
-    properties:
-      "group.id": "snapshot.analyzer"
-      "bootstrap.servers": "localhost:9092"
-      "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
-      "value.deserializer": "ru.yandex.practicum.kafka.telemetry.serialization.SnapshotDeserializer"
-
-#Spring JPA
 spring:
-  jpa:
-    hibernate.ddl-auto: create
-  datasource:
-    driverClassName: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:6541/analyzer
-    username: analyzer
-    password: analyzer
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:db_init.sql
+  application:
+    name: analyzer
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      discovery:
+        enabled: true
+        serviceId: config-server
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://${eureka.instance.hostname:localhost}:${eureka.instance.port:8761}/eureka/
