@@ -2,13 +2,14 @@ package ru.yandex.practicum.sht.commerce.contract;
 
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.sht.commerce.dto.AddressDto;
 import ru.yandex.practicum.sht.commerce.dto.ApiError;
 import ru.yandex.practicum.sht.commerce.dto.cart.ShoppingCartDto;
-import ru.yandex.practicum.sht.commerce.dto.warehouse.AddProductToWarehouseRequest;
-import ru.yandex.practicum.sht.commerce.dto.warehouse.AddressDto;
-import ru.yandex.practicum.sht.commerce.dto.warehouse.BookedProductsDto;
-import ru.yandex.practicum.sht.commerce.dto.warehouse.NewProductInWarehouseRequest;
+import ru.yandex.practicum.sht.commerce.dto.warehouse.*;
 import ru.yandex.practicum.sht.commerce.exception.*;
+
+import java.util.Map;
+import java.util.UUID;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
@@ -18,8 +19,18 @@ public interface WarehouseContract {
     void putNewProduct(@RequestBody NewProductInWarehouseRequest request) throws
             SpecifiedProductAlreadyInWarehouseException;
 
+    @PostMapping("/shipped")
+    void postTransferProductsToDelivery(@RequestBody ShippedToDeliveryRequest request);
+
+    @PostMapping("/return")
+    void postReturnProductToWarehouse(@RequestBody Map<UUID,Long> products);
+
     @PostMapping("/check")
     BookedProductsDto postCheckProductQuantityForShoppingCart(@RequestBody ShoppingCartDto cart)
+            throws ProductInShoppingCartLowQuantityInWarehouse;
+
+    @PostMapping("/assembly")
+    BookedProductsDto postAssemblyProductForOrderFromShoppingCart(@RequestBody AssemblyProductsForOrderRequest request)
             throws ProductInShoppingCartLowQuantityInWarehouse;
 
     @PostMapping("/add")
