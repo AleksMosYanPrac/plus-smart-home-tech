@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.sht.commerce.contract.OrderFeignClient;
 import ru.yandex.practicum.sht.commerce.contract.ShoppingStoreFeignClient;
@@ -38,17 +39,17 @@ public class PaymentServiceImpl implements ru.yandex.practicum.sht.commerce.paym
     private double FEE;
 
     @Override
+    @Transactional
     public PaymentDto addPayment(OrderDto orderDto) throws NotEnoughInfoInOrderToCalculateException {
         log.info("Add new payment for Order:{}", orderDto.getOrderId());
-        return transactionTemplate.execute(status -> {
-            Payment newPayment = new Payment();
-            newPayment.setOrderId(orderDto.getOrderId());
-            newPayment.setTotalPayment(orderDto.getTotalPrice());
-            newPayment.setDeliveryTotal(orderDto.getDeliveryPrice());
-            newPayment.setFeeTotal(orderDto.getTotalPrice().multiply(BigDecimal.valueOf(FEE)));
-            newPayment.setStatus(PENDING);
-            return mapper.toDto(paymentRepository.save(newPayment));
-        });
+        Payment newPayment = new Payment();
+        newPayment.setOrderId(orderDto.getOrderId());
+        newPayment.setTotalPayment(orderDto.getTotalPrice());
+        newPayment.setDeliveryTotal(orderDto.getDeliveryPrice());
+        newPayment.setFeeTotal(orderDto.getTotalPrice().multiply(BigDecimal.valueOf(FEE)));
+        newPayment.setStatus(PENDING);
+        return mapper.toDto(paymentRepository.save(newPayment));
+
     }
 
     @Override

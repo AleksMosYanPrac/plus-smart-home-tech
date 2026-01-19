@@ -3,6 +3,7 @@ package ru.yandex.practicum.sht.commerce.warehouse.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.sht.commerce.dto.AddressDto;
 import ru.yandex.practicum.sht.commerce.dto.cart.ShoppingCartDto;
@@ -34,14 +35,13 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final TransactionTemplate transactionTemplate;
 
     @Override
+    @Transactional
     public void addNewProduct(NewProductInWarehouseRequest request) throws SpecifiedProductAlreadyInWarehouseException {
         log.info("Add new product to warehouse with ID:{} ", request.getProductId());
-        transactionTemplate.execute(status -> {
-            if (warehouseRepository.existsById((request.getProductId()))) {
-                throw new SpecifiedProductAlreadyInWarehouseException("Product already exists at warehouse");
-            }
-            return warehouseRepository.save(mapper.toProduct(request));
-        });
+        if (warehouseRepository.existsById((request.getProductId()))) {
+            throw new SpecifiedProductAlreadyInWarehouseException("Product already exists at warehouse");
+        }
+        warehouseRepository.save(mapper.toProduct(request));
     }
 
     @Override
@@ -65,15 +65,14 @@ public class WarehouseServiceImpl implements WarehouseService {
     }
 
     @Override
+    @Transactional
     public void increaseProductQuantity(AddProductToWarehouseRequest request)
             throws NoSpecifiedProductInWarehouseException {
         log.info("Add quantity for Product ID:{}", request.getProductId());
-        transactionTemplate.execute(status -> {
-            Product product = warehouseRepository.findById(request.getProductId())
-                    .orElseThrow(() -> new NoSpecifiedProductInWarehouseException("Product is absent at warehouse"));
-            product.addQuantity(request.getQuantity());
-            return warehouseRepository.save(product);
-        });
+        Product product = warehouseRepository.findById(request.getProductId())
+                .orElseThrow(() -> new NoSpecifiedProductInWarehouseException("Product is absent at warehouse"));
+        product.addQuantity(request.getQuantity());
+        warehouseRepository.save(product);
     }
 
     @Override
@@ -82,27 +81,27 @@ public class WarehouseServiceImpl implements WarehouseService {
     }
 
     @Override
+    @Transactional
     public void transferProductsToDelivery(ShippedToDeliveryRequest request) {
-        transactionTemplate.execute(status -> {
-            OrderBooking booking = bookingRepository.findByOrderId(request.getOrderId());
-            booking.setDeliveryId(request.getDeliveryId());
-            return bookingRepository.save(booking);
-        });
+        log.info("Transfer products to delivery for order:{}", request.getOrderId());
+        OrderBooking booking = bookingRepository.findByOrderId(request.getOrderId());
+        booking.setDeliveryId(request.getDeliveryId());
+        bookingRepository.save(booking);
     }
 
     @Override
+    @Transactional
     public void returnProductsToWarehouse(Map<UUID, Long> products) {
         log.info("Returning products to warehouse");
-        transactionTemplate.execute(status -> {
-            List<Product> productList = warehouseRepository.findAllById(products.keySet());
-            productList.forEach(p -> {
-                p.addQuantity(products.get(p.getProductId()));
-            });
-            return warehouseRepository.saveAll(productList);
+        List<Product> productList = warehouseRepository.findAllById(products.keySet());
+        productList.forEach(p -> {
+            p.addQuantity(products.get(p.getProductId()));
         });
+        warehouseRepository.saveAll(productList);
     }
 
     @Override
+    @Transactional
     public BookedProductsDto assemblyProductsForOrderFromShoppingCart(AssemblyProductsForOrderRequest request)
             throws ProductInShoppingCartLowQuantityInWarehouse {
         List<Product> products = warehouseRepository.findAllById(request.getProducts().keySet());
@@ -111,22 +110,19 @@ public class WarehouseServiceImpl implements WarehouseService {
                 throw new ProductInShoppingCartLowQuantityInWarehouse("Quantity at warehouse low then in request");
             }
         });
+        OrderBooking booking = new OrderBooking();
+        booking.setOrderId(request.getOrderId());
+        booking.setProducts(request.getProducts());
+        bookingRepository.save(booking);
 
-        return transactionTemplate.execute(status -> {
-            OrderBooking booking = new OrderBooking();
-            booking.setOrderId(request.getOrderId());
-            booking.setProducts(request.getProducts());
-            bookingRepository.save(booking);
-
-            BookedProductsDto bookedProductsDto = new BookedProductsDto();
-            products.forEach(product -> {
-                Long productQuantityAtRequest = request.getProducts().get(product.getProductId());
-                product.reduceQuantity(productQuantityAtRequest);
-                calculateBookedProducts(bookedProductsDto, product, productQuantityAtRequest);
-            });
-            warehouseRepository.saveAll(products);
-            return bookedProductsDto;
+        BookedProductsDto bookedProductsDto = new BookedProductsDto();
+        products.forEach(product -> {
+            Long productQuantityAtRequest = request.getProducts().get(product.getProductId());
+            product.reduceQuantity(productQuantityAtRequest);
+            calculateBookedProducts(bookedProductsDto, product, productQuantityAtRequest);
         });
+        warehouseRepository.saveAll(products);
+        return bookedProductsDto;
     }
 
     private void calculateBookedProducts(BookedProductsDto products, Product product, Long quantity) {

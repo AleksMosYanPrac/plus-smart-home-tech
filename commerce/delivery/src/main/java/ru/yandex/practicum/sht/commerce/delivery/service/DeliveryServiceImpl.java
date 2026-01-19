@@ -3,6 +3,7 @@ package ru.yandex.practicum.sht.commerce.delivery.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.sht.commerce.contract.OrderFeignClient;
 import ru.yandex.practicum.sht.commerce.contract.WarehouseFeignClient;
@@ -32,16 +33,16 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final TransactionTemplate transactionTemplate;
 
     @Override
+    @Transactional
     public DeliveryDto addNewDelivery(DeliveryDto deliveryDto) {
         log.info("Add new delivery for order:{}", deliveryDto.getOrderId());
-        return transactionTemplate.execute((status) -> {
-            Delivery newDelivery = new Delivery();
-            newDelivery.setOrderId(deliveryDto.getOrderId());
-            newDelivery.setFromAddress(mapper.toAddress(deliveryDto.getFromAddress()));
-            newDelivery.setToAddress(mapper.toAddress(deliveryDto.getToAddress()));
-            newDelivery.setDeliveryState(CREATED);
-            return mapper.toDto(deliveryRepository.save(newDelivery));
-        });
+        Delivery newDelivery = new Delivery();
+        newDelivery.setOrderId(deliveryDto.getOrderId());
+        newDelivery.setFromAddress(mapper.toAddress(deliveryDto.getFromAddress()));
+        newDelivery.setToAddress(mapper.toAddress(deliveryDto.getToAddress()));
+        newDelivery.setDeliveryState(CREATED);
+        return mapper.toDto(deliveryRepository.save(newDelivery));
+
     }
 
     @Override

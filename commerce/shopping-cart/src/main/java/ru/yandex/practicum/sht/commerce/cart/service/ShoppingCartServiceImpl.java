@@ -3,6 +3,7 @@ package ru.yandex.practicum.sht.commerce.cart.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.sht.commerce.cart.mapper.ShoppingCartMapper;
 import ru.yandex.practicum.sht.commerce.cart.model.ShoppingCart;
@@ -29,18 +30,17 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     private final TransactionTemplate transactionTemplate;
 
     @Override
+    @Transactional
     public ShoppingCartDto getUserShoppingCart(String username) throws NotAuthorizedUserException {
         log.info("Get shopping cart for User:{}", username);
-        return transactionTemplate.execute(status -> {
-            ShoppingCart shoppingCart = repository.findByUsername(username)
-                    .orElseGet(() -> {
-                        ShoppingCart newShoppingCart = new ShoppingCart();
-                        newShoppingCart.setUsername(username);
-                        newShoppingCart.setActive(true);
-                        return repository.save(newShoppingCart);
-                    });
-            return mapper.toDto(shoppingCart);
-        });
+        ShoppingCart shoppingCart = repository.findByUsername(username)
+                .orElseGet(() -> {
+                    ShoppingCart newShoppingCart = new ShoppingCart();
+                    newShoppingCart.setUsername(username);
+                    newShoppingCart.setActive(true);
+                    return repository.save(newShoppingCart);
+                });
+        return mapper.toDto(shoppingCart);
     }
 
     @Override
@@ -60,34 +60,33 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     }
 
     @Override
+    @Transactional
     public void deactivateCart(String username) throws NotAuthorizedUserException {
         log.info("Deactivate shopping cart user:{}", username);
-        transactionTemplate.execute(status -> {
-            ShoppingCart shoppingCart = repository.findByUsername(username)
-                    .orElseGet(() -> {
-                        ShoppingCart newShoppingCart = new ShoppingCart();
-                        newShoppingCart.setUsername(username);
-                        return newShoppingCart;
-                    });
-            shoppingCart.setActive(false);
-            return repository.save(shoppingCart);
-        });
+        ShoppingCart shoppingCart = repository.findByUsername(username)
+                .orElseGet(() -> {
+                    ShoppingCart newShoppingCart = new ShoppingCart();
+                    newShoppingCart.setUsername(username);
+                    return newShoppingCart;
+                });
+        shoppingCart.setActive(false);
+        repository.save(shoppingCart);
     }
 
     @Override
+    @Transactional
     public ShoppingCartDto deleteProductFromCart(String username, Set<UUID> productList)
             throws NoProductsInShoppingCartException, NotAuthorizedUserException {
         log.info("Delete products:{} from cart by user:{}", productList, username);
-        return transactionTemplate.execute(status -> {
-            ShoppingCart shoppingCart = repository.findByUsername(username)
-                    .orElseThrow(() -> new NoProductsInShoppingCartException("Products is absent in shopping cart"));
-            if (shoppingCart.isContainProducts(productList)) {
-                shoppingCart.removeProducts(productList);
-                return mapper.toDto(repository.save(shoppingCart));
-            } else {
-                throw new NoProductsInShoppingCartException("Products is absent in shopping cart");
-            }
-        });
+        ShoppingCart shoppingCart = repository.findByUsername(username)
+                .orElseThrow(() -> new NoProductsInShoppingCartException("Products is absent in shopping cart"));
+        if (shoppingCart.isContainProducts(productList)) {
+            shoppingCart.removeProducts(productList);
+            return mapper.toDto(repository.save(shoppingCart));
+        } else {
+            throw new NoProductsInShoppingCartException("Products is absent in shopping cart");
+        }
+
     }
 
     @Override

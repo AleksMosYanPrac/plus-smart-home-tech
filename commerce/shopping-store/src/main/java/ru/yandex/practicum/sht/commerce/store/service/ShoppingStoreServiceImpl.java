@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.sht.commerce.dto.store.ProductCategory;
 import ru.yandex.practicum.sht.commerce.dto.store.ProductDto;
 import ru.yandex.practicum.sht.commerce.dto.store.ProductState;
@@ -24,7 +24,6 @@ public class ShoppingStoreServiceImpl implements ShoppingStoreService {
 
     private final ProductRepository productRepository;
     private final ProductMapper mapper;
-    private final TransactionTemplate transactionTemplate;
 
     @Override
     public Page<ProductDto> getProductList(ProductCategory category, Pageable pageable) {
@@ -34,51 +33,49 @@ public class ShoppingStoreServiceImpl implements ShoppingStoreService {
     }
 
     @Override
+    @Transactional
     public ProductDto addNewProduct(ProductDto productDto) {
         log.info("Add new product ID:{}", productDto.getProductId());
-        return transactionTemplate.execute(status -> {
-                    return mapper.toDto(productRepository.save(mapper.toProduct(productDto)));
-                });
+        return mapper.toDto(productRepository.save(mapper.toProduct(productDto)));
+
     }
 
     @Override
+    @Transactional
     public ProductDto updateProduct(ProductDto productDto) throws ProductNotFoundException {
         log.info("Update product ID:{}", productDto.getProductId());
-        return transactionTemplate.execute(status -> {
-            Product product = productRepository.findById(productDto.getProductId())
-                    .orElseThrow(() -> new ProductNotFoundException("Product is absent at shopping store"));
-            product.setProductName(productDto.getProductName());
-            product.setDescription(productDto.getDescription());
-            product.setImageSrc(productDto.getImageSrc());
-            product.setProductCategory(productDto.getProductCategory());
-            product.setPrice(productDto.getPrice());
-            return mapper.toDto(productRepository.save(product));
-        });
+        Product product = productRepository.findById(productDto.getProductId())
+                .orElseThrow(() -> new ProductNotFoundException("Product is absent at shopping store"));
+        product.setProductName(productDto.getProductName());
+        product.setDescription(productDto.getDescription());
+        product.setImageSrc(productDto.getImageSrc());
+        product.setProductCategory(productDto.getProductCategory());
+        product.setPrice(productDto.getPrice());
+        return mapper.toDto(productRepository.save(product));
+
     }
 
     @Override
+    @Transactional
     public boolean removeProduct(UUID productId) throws ProductNotFoundException {
         log.info("Deactivate product ID:{}", productId);
-        return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-            Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ProductNotFoundException("Product is absent at shopping store"));
-            product.setProductState(ProductState.DEACTIVATE);
-            productRepository.save(product);
-            return true;
-        }));
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException("Product is absent at shopping store"));
+        product.setProductState(ProductState.DEACTIVATE);
+        productRepository.save(product);
+        return true;
     }
 
     @Override
+    @Transactional
     public boolean updateProductQuantityState(UUID productId, QuantityState quantityState)
             throws ProductNotFoundException {
         log.info("Update quantity product ID:{}", productId);
-        return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-            Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ProductNotFoundException("Product is absent at shopping store"));
-            product.setQuantityState(quantityState);
-            productRepository.save(product);
-            return true;
-        }));
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException("Product is absent at shopping store"));
+        product.setQuantityState(quantityState);
+        productRepository.save(product);
+        return true;
     }
 
     @Override

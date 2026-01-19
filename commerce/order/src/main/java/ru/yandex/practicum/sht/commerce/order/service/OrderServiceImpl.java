@@ -4,6 +4,7 @@ import feign.Retryer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.sht.commerce.contract.DeliveryFeignClient;
 import ru.yandex.practicum.sht.commerce.contract.PaymentFeignClient;
@@ -131,12 +132,12 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
     public OrderDto changeOrderState(UUID orderId, OrderState state) throws NoOrderFoundException {
-        return transactionTemplate.execute(status -> {
-            Order order = getById(orderId);
-            order.setState(state);
-            return mapper.toDto(orderRepository.save(order));
-        });
+        log.info("Change state for order:{}", orderId);
+        Order order = getById(orderId);
+        order.setState(state);
+        return mapper.toDto(orderRepository.save(order));
     }
 
     private Order getById(UUID orderId) throws NoOrderFoundException {
