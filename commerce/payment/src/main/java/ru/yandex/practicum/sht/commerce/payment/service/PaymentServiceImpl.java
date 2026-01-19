@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.sht.commerce.contract.OrderFeignClient;
 import ru.yandex.practicum.sht.commerce.contract.ShoppingStoreFeignClient;
 import ru.yandex.practicum.sht.commerce.dto.order.OrderDto;
@@ -31,6 +32,7 @@ public class PaymentServiceImpl implements ru.yandex.practicum.sht.commerce.paym
     private final OrderFeignClient orderClient;
     private final PaymentRepository paymentRepository;
     private final PaymentMapper mapper;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${payment.fee.value}")
     private double FEE;
@@ -38,13 +40,15 @@ public class PaymentServiceImpl implements ru.yandex.practicum.sht.commerce.paym
     @Override
     public PaymentDto addPayment(OrderDto orderDto) throws NotEnoughInfoInOrderToCalculateException {
         log.info("Add new payment for Order:{}", orderDto.getOrderId());
-        Payment newPayment = new Payment();
-        newPayment.setOrderId(orderDto.getOrderId());
-        newPayment.setTotalPayment(orderDto.getTotalPrice());
-        newPayment.setDeliveryTotal(orderDto.getDeliveryPrice());
-        newPayment.setFeeTotal(orderDto.getTotalPrice().multiply(BigDecimal.valueOf(FEE)));
-        newPayment.setStatus(PENDING);
-        return mapper.toDto(paymentRepository.save(newPayment));
+        return transactionTemplate.execute(status -> {
+            Payment newPayment = new Payment();
+            newPayment.setOrderId(orderDto.getOrderId());
+            newPayment.setTotalPayment(orderDto.getTotalPrice());
+            newPayment.setDeliveryTotal(orderDto.getDeliveryPrice());
+            newPayment.setFeeTotal(orderDto.getTotalPrice().multiply(BigDecimal.valueOf(FEE)));
+            newPayment.setStatus(PENDING);
+            return mapper.toDto(paymentRepository.save(newPayment));
+        });
     }
 
     @Override
@@ -79,14 +83,16 @@ public class PaymentServiceImpl implements ru.yandex.practicum.sht.commerce.paym
 
     @Override
     public void receivePayment(UUID paymentId, boolean isSuccess) throws NoOrderFoundException {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new NoOrderFoundException("No order for payment: " + paymentId));
-        if (isSuccess) {
-            payment.setStatus(SUCCESS);
-            orderClient.postOrderPayment(payment.getOrderId());
-        } else {
-            payment.setStatus(FAILED);
-            orderClient.postOrderPaymentWithFail(payment.getOrderId());
-        }
+        Payment payment = transactionTemplate.execute(status -> {
+            Payment updatedPayment = paymentRepository.findById(paymentId)
+                    .orElseThrow(() -> new NoOrderFoundException("No order for payment: " + paymentId));
+            if (isSuccess) {
+                updatedPayment.setStatus(SUCCESS);
+            } else {
+                updatedPayment.setStatus(FAILED);
+            }
+            return paymentRepository.save(updatedPayment);
+        });
+        orderClient.postOrderPayment(payment.getOrderId());
     }
 }

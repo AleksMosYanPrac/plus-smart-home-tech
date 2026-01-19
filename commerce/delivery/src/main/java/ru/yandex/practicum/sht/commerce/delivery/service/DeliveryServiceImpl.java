@@ -3,6 +3,7 @@ package ru.yandex.practicum.sht.commerce.delivery.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.sht.commerce.contract.OrderFeignClient;
 import ru.yandex.practicum.sht.commerce.contract.WarehouseFeignClient;
 import ru.yandex.practicum.sht.commerce.delivery.mapper.DeliveryMapper;
@@ -28,23 +29,30 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final WarehouseFeignClient warehouseClient;
     private final DeliveryRepository deliveryRepository;
     private final DeliveryMapper mapper;
+    private final TransactionTemplate transactionTemplate;
 
     @Override
     public DeliveryDto addNewDelivery(DeliveryDto deliveryDto) {
         log.info("Add new delivery for order:{}", deliveryDto.getOrderId());
-        Delivery newDelivery = new Delivery();
-        newDelivery.setOrderId(deliveryDto.getOrderId());
-        newDelivery.setFromAddress(mapper.toAddress(deliveryDto.getFromAddress()));
-        newDelivery.setToAddress(mapper.toAddress(deliveryDto.getToAddress()));
-        newDelivery.setDeliveryState(CREATED);
-        return mapper.toDto(deliveryRepository.save(newDelivery));
+        return transactionTemplate.execute((status) -> {
+            Delivery newDelivery = new Delivery();
+            newDelivery.setOrderId(deliveryDto.getOrderId());
+            newDelivery.setFromAddress(mapper.toAddress(deliveryDto.getFromAddress()));
+            newDelivery.setToAddress(mapper.toAddress(deliveryDto.getToAddress()));
+            newDelivery.setDeliveryState(CREATED);
+            return mapper.toDto(deliveryRepository.save(newDelivery));
+        });
     }
 
     @Override
     public void changeDeliveryState(UUID deliveryId, DeliveryState deliveryState) throws NoDeliveryFoundException {
         log.info("Change state for delivery:{}, status:{}", deliveryId, deliveryState);
-        Delivery delivery = deliveryRepository.findById(deliveryId)
-                .orElseThrow(() -> new NoDeliveryFoundException("Not found delivery:" + deliveryId));
+        Delivery delivery = transactionTemplate.execute((status) -> {
+            Delivery updatedDelivery = deliveryRepository.findById(deliveryId)
+                    .orElseThrow(() -> new NoDeliveryFoundException("Not found delivery:" + deliveryId));
+            updatedDelivery.setDeliveryState(deliveryState);
+            return deliveryRepository.save(updatedDelivery);
+        });
         switch (deliveryState) {
             case FAILED -> orderClient.postOrderDeliveryWithFail(delivery.getOrderId());
             case IN_PROGRESS -> {
@@ -54,8 +62,6 @@ public class DeliveryServiceImpl implements DeliveryService {
             }
             case DELIVERED -> orderClient.postOrderDelivery(delivery.getOrderId());
         }
-        delivery.setDeliveryState(deliveryState);
-        deliveryRepository.save(delivery);
     }
 
     @Override
@@ -81,10 +87,10 @@ public class DeliveryServiceImpl implements DeliveryService {
     }
 
     private BigDecimal caseFragile(BigDecimal cost, Boolean fragile) {
-        if (fragile) {
-            return cost.multiply(BigDecimal.valueOf(0.2));
+        if (!fragile) {
+            return BigDecimal.ZERO;
         }
-        return BigDecimal.ZERO;
+        return cost.multiply(BigDecimal.valueOf(0.2));
     }
 
     private BigDecimal caseWarehouseAddress(BigDecimal baseCost, Delivery.Address warehouseAddress) {

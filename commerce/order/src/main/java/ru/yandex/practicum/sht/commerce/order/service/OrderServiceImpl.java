@@ -1,8 +1,10 @@
 package ru.yandex.practicum.sht.commerce.order.service;
 
+import feign.Retryer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.sht.commerce.contract.DeliveryFeignClient;
 import ru.yandex.practicum.sht.commerce.contract.PaymentFeignClient;
 import ru.yandex.practicum.sht.commerce.contract.ShoppingCartFeignClient;
@@ -22,6 +24,7 @@ import ru.yandex.practicum.sht.commerce.order.mapper.OrderMapper;
 import ru.yandex.practicum.sht.commerce.order.model.Order;
 import ru.yandex.practicum.sht.commerce.order.repository.OrderRepository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,6 +41,9 @@ public class OrderServiceImpl implements OrderService {
     private final ShoppingCartFeignClient shoppingCartClient;
     private final OrderRepository orderRepository;
     private final OrderMapper mapper;
+    private final TransactionTemplate transactionTemplate;
+
+    private final Retryer retryer;
 
     @Override
     public List<OrderDto> getUserOrders(String username) throws NotAuthorizedUserException {
@@ -49,21 +55,25 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public OrderDto addNewOrder(CreateNewOrderRequest orderRequest) throws NoSpecifiedProductInWarehouseException {
         log.info("Create new order for shopping cart:{}", orderRequest.getShoppingCart().getShoppingCartId());
-        Order newOrder = new Order();
-        newOrder.setShoppingCartId(orderRequest.getShoppingCart().getShoppingCartId());
-        newOrder.setState(NEW);
-        newOrder = orderRepository.save(newOrder);
+        Order newOrder = transactionTemplate.execute(status -> {
+            Order order = new Order();
+            order.setShoppingCartId(orderRequest.getShoppingCart().getShoppingCartId());
+            order.setState(NEW);
+            return orderRepository.save(order);
+        });
 
         log.debug("Send request to warehouse for booking products Order:{}", newOrder.getOrderId());
         AssemblyProductsForOrderRequest warehousRequest = new AssemblyProductsForOrderRequest();
         warehousRequest.setOrderId(newOrder.getOrderId());
         warehousRequest.setProducts(orderRequest.getShoppingCart().getProducts());
         BookedProductsDto bookedProducts = warehouseClient.postAssemblyProductForOrderFromShoppingCart(warehousRequest);
-        newOrder.setProducts(orderRequest.getShoppingCart().getProducts());
-        newOrder.setDeliveryWeight(bookedProducts.getDeliveryWeight());
-        newOrder.setDeliveryVolume(bookedProducts.getDeliveryVolume());
-        newOrder.setFragile(bookedProducts.isFragile());
-        orderRepository.save(newOrder);
+        Order orderWithBookedProducts = transactionTemplate.execute(status -> {
+            newOrder.setProducts(orderRequest.getShoppingCart().getProducts());
+            newOrder.setDeliveryWeight(bookedProducts.getDeliveryWeight());
+            newOrder.setDeliveryVolume(bookedProducts.getDeliveryVolume());
+            newOrder.setFragile(bookedProducts.isFragile());
+            return orderRepository.save(newOrder);
+        });
 
         log.debug("Send request to delivery for create new delivery Order:{}", newOrder.getOrderId());
         DeliveryDto deliveryRequest = new DeliveryDto();
@@ -71,50 +81,62 @@ public class OrderServiceImpl implements OrderService {
         deliveryRequest.setFromAddress(warehouseClient.getWarehouseAddress());
         deliveryRequest.setToAddress(orderRequest.getDeliveryAddress());
         DeliveryDto deliveryDto = deliveryClient.putAddNewDelivery(deliveryRequest);
-        newOrder.setDeliveryId(deliveryDto.getDeliveryId());
-
-        return mapper.toDto(orderRepository.save(newOrder));
+        return transactionTemplate.execute(status -> {
+            orderWithBookedProducts.setDeliveryId(deliveryDto.getDeliveryId());
+            return mapper.toDto(orderRepository.save(orderWithBookedProducts));
+        });
     }
 
     @Override
     public OrderDto addReturnOrder(ProductReturnRequest request) throws NoOrderFoundException {
         log.info("Returning products for order:{}", request.getOrderId());
-        Order order = getById(request.getOrderId());
-        if (order.getProducts().keySet().containsAll(request.getProducts().keySet())) {
-            warehouseClient.postReturnProductToWarehouse(request.getProducts());
-            order.setState(CANCELED);
-            return mapper.toDto(orderRepository.save(order));
-        } else {
-            warehouseClient.postReturnProductToWarehouse(request.getProducts());
-            order.setState(PRODUCT_RETURNED);
-            return mapper.toDto(orderRepository.save(order));
-        }
+        Order orderWithReturnedProducts = transactionTemplate.execute(status -> {
+            Order order = getById(request.getOrderId());
+            if (order.getProducts().keySet().containsAll(request.getProducts().keySet())) {
+                order.setState(CANCELED);
+                return orderRepository.save(order);
+            } else {
+                order.setState(PRODUCT_RETURNED);
+                return orderRepository.save(order);
+            }
+        });
+        warehouseClient.postReturnProductToWarehouse(request.getProducts());
+        return mapper.toDto(orderWithReturnedProducts);
     }
 
     @Override
     public OrderDto calculateTotalPrice(UUID orderId) throws NoOrderFoundException {
         log.info("Calculate total price for order:{}", orderId);
         Order order = getById(orderId);
-        order.setTotalPrice(paymentClient.postCalcTotalCost(mapper.toDto(order)));
-        order.setProductPrice(paymentClient.postCalcProductsCostInOrder(mapper.toDto(order)));
-        order.setState(ON_PAYMENT);
-        return mapper.toDto(orderRepository.save(order));
+        BigDecimal totalPrice = paymentClient.postCalcTotalCost(mapper.toDto(order));
+        BigDecimal productPrice = paymentClient.postCalcProductsCostInOrder(mapper.toDto(order));
+        return transactionTemplate.execute(status -> {
+            order.setTotalPrice(totalPrice);
+            order.setProductPrice(productPrice);
+            order.setState(ON_PAYMENT);
+            return mapper.toDto(orderRepository.save(order));
+        });
     }
 
     @Override
     public OrderDto calculateDeliveryPrice(UUID orderId) throws NoOrderFoundException {
         log.info("Calculate delivery price for order:{}", orderId);
         Order order = getById(orderId);
-        order.setDeliveryPrice(deliveryClient.postCalcDeliveryCost(mapper.toDto(order)));
-        order.setState(ON_DELIVERY);
-        return mapper.toDto(orderRepository.save(order));
+        BigDecimal deliveryPrice = deliveryClient.postCalcDeliveryCost(mapper.toDto(order));
+        return transactionTemplate.execute(status -> {
+            order.setDeliveryPrice(deliveryPrice);
+            order.setState(ON_DELIVERY);
+            return mapper.toDto(orderRepository.save(order));
+        });
     }
 
     @Override
     public OrderDto changeOrderState(UUID orderId, OrderState state) throws NoOrderFoundException {
-        Order order = getById(orderId);
-        order.setState(state);
-        return mapper.toDto(orderRepository.save(order));
+        return transactionTemplate.execute(status -> {
+            Order order = getById(orderId);
+            order.setState(state);
+            return mapper.toDto(orderRepository.save(order));
+        });
     }
 
     private Order getById(UUID orderId) throws NoOrderFoundException {
