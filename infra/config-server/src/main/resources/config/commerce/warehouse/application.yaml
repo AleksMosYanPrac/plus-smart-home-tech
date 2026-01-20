@@ -15,6 +15,3 @@ spring:
     url: jdbc:postgresql://localhost:6541/warehouse
     username: postgres
     password: postgres
-  h2:
-    console:
-      enabled: true

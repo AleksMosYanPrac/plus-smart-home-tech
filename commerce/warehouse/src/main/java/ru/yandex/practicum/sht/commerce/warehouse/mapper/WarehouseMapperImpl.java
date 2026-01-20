@@ -1,7 +1,7 @@
 package ru.yandex.practicum.sht.commerce.warehouse.mapper;
 
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.sht.commerce.dto.warehouse.AddressDto;
+import ru.yandex.practicum.sht.commerce.dto.AddressDto;
 import ru.yandex.practicum.sht.commerce.dto.warehouse.DimensionDto;
 import ru.yandex.practicum.sht.commerce.dto.warehouse.NewProductInWarehouseRequest;
 import ru.yandex.practicum.sht.commerce.warehouse.config.AddressConfig;

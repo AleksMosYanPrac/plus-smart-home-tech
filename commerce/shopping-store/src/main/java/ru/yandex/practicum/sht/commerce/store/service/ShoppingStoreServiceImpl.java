@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.sht.commerce.dto.store.ProductCategory;
 import ru.yandex.practicum.sht.commerce.dto.store.ProductDto;
 import ru.yandex.practicum.sht.commerce.dto.store.ProductState;
@@ -32,12 +33,15 @@ public class ShoppingStoreServiceImpl implements ShoppingStoreService {
     }
 
     @Override
+    @Transactional
     public ProductDto addNewProduct(ProductDto productDto) {
         log.info("Add new product ID:{}", productDto.getProductId());
         return mapper.toDto(productRepository.save(mapper.toProduct(productDto)));
+
     }
 
     @Override
+    @Transactional
     public ProductDto updateProduct(ProductDto productDto) throws ProductNotFoundException {
         log.info("Update product ID:{}", productDto.getProductId());
         Product product = productRepository.findById(productDto.getProductId())
@@ -48,9 +52,11 @@ public class ShoppingStoreServiceImpl implements ShoppingStoreService {
         product.setProductCategory(productDto.getProductCategory());
         product.setPrice(productDto.getPrice());
         return mapper.toDto(productRepository.save(product));
+
     }
 
     @Override
+    @Transactional
     public boolean removeProduct(UUID productId) throws ProductNotFoundException {
         log.info("Deactivate product ID:{}", productId);
         Product product = productRepository.findById(productId)
@@ -61,6 +67,7 @@ public class ShoppingStoreServiceImpl implements ShoppingStoreService {
     }
 
     @Override
+    @Transactional
     public boolean updateProductQuantityState(UUID productId, QuantityState quantityState)
             throws ProductNotFoundException {
         log.info("Update quantity product ID:{}", productId);

@@ -33,6 +33,10 @@ public class Product {
         return dimension.calcVolume();
     }
 
+    public void reduceQuantity(Long count) {
+        this.quantity = Math.subtractExact(quantity, count);
+    }
+
     @Data
     public static class Dimension {
         private Double width;
